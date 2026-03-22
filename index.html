@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GreenX TMS - Sistema de Gestão de Transportes</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚚</text></svg>">
+    <!-- Ícones (FontAwesome simulado ou texto para leveza) -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Firebase SDK (Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+
+    <!-- TELA DE LOGIN -->
+    <div id="login-screen" class="login-container">
+        <div class="login-box">
+            <h2><i class="fa-solid fa-truck-fast"></i> GreenX TMS</h2>
+            <p>Acesso Administrativo</p>
+            <p id="login-error" class="login-error hidden"></p>
+            <form id="login-form">
+                <div class="input-group">
+                    <label>Usuário</label>
+                    <input type="text" id="login-user" placeholder="admin" required>
+                </div>
+                <div class="input-group">
+                    <label>Senha</label>
+                    <input type="password" id="login-pass" placeholder="admin1234" required>
+                </div>
+                <button type="submit" class="btn-primary" style="width: 100%;">Entrar</button>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+                    <p class="toggle-link" onclick="forgotPassword()" style="margin-top: 0;">Esqueci a senha</p>
+                    <p class="toggle-link" onclick="toggleRegister()" style="margin-top: 0;">Cadastre-se</p>
+                </div>
+            </form>
+
+            <form id="register-form" class="hidden">
+                <div class="input-group">
+                    <label>Novo Usuário</label>
+                    <input type="text" id="reg-user" required>
+                </div>
+                <div class="input-group">
+                    <label>Nova Senha</label>
+                    <input type="password" id="reg-pass" required>
+                </div>
+                <button type="submit" class="btn-secondary">Cadastrar</button>
+                <p class="toggle-link" onclick="toggleRegister()">Voltar para Login</p>
+            </form>
+        </div>
+    </div>
+
+    <!-- SISTEMA PRINCIPAL (DASHBOARD) -->
+    <div id="app-screen" class="app-container hidden">
+        
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <div class="brand">
+                <i class="fa-solid fa-truck-fast"></i> GreenX TMS
+                <button class="mobile-menu-toggle" onclick="toggleMobileMenu()"><i class="fa-solid fa-bars"></i></button>
+            </div>
+            <nav>
+                <ul>
+                    <li onclick="navigate('dashboard')" class="active"><i class="fa-solid fa-chart-line"></i> Dashboard</li>
+                    <li onclick="navigate('fretes')"><i class="fa-solid fa-box"></i> Fretes & Pedidos</li>
+                    <li onclick="navigate('clientes')"><i class="fa-solid fa-users"></i> Clientes</li>
+                    <li onclick="navigate('faturamento')"><i class="fa-solid fa-file-invoice-dollar"></i> Faturamento</li>
+                    <li onclick="navigate('pagamentos')"><i class="fa-solid fa-hand-holding-dollar"></i> Pagamentos</li>
+                    <li onclick="navigate('rastreio')"><i class="fa-solid fa-magnifying-glass-location"></i> Rastreamento</li>
+                    <li onclick="navigate('perfil')"><i class="fa-solid fa-user-gear"></i> Perfil</li>
+                    <li onclick="logout()" class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Sair</li>
+                </ul>
+            </nav>
+        </aside>
+
+        <!-- CONTEÚDO PRINCIPAL -->
+        <main class="content">
+            <header>
+                <button class="mobile-menu-btn-header" onclick="toggleMobileMenu()"><i class="fa-solid fa-bars"></i></button>
+                <h2 id="page-title">Dashboard</h2>
+                <div class="header-controls">
+                    <!-- Notificações -->
+                    <div class="notification-container">
+                        <button class="btn-secondary" onclick="toggleNotifications()" title="Notificações" style="position: relative;">
+                            <i class="fa-solid fa-bell"></i>
+                            <span id="notification-badge" class="notification-badge hidden">0</span>
+                        </button>
+                        <div id="notification-dropdown" class="notification-dropdown hidden">
+                            <div class="notification-header">
+                                <h4>Notificações</h4>
+                                <div style="display: flex; gap: 10px;">
+                                    <button onclick="markAllAsRead()" title="Marcar todas como lidas" style="background:none; border:none; cursor:pointer; color: var(--primary); font-size: 0.9rem;"><i class="fa-solid fa-check-double"></i></button>
+                                    <button onclick="checkNotifications()" title="Atualizar" style="background:none; border:none; cursor:pointer; font-size: 0.9rem;"><i class="fa-solid fa-rotate-right"></i></button>
+                                </div>
+                            </div>
+                            <div id="notification-list" class="notification-list">
+                                <div style="padding: 15px; text-align: center; color: #666;">Nenhuma notificação.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn-secondary" onclick="toggleTheme()" title="Alternar Tema"><i class="fa-solid fa-moon"></i></button>
+                    <div class="user-info" style="display: flex; align-items: center; gap: 10px;">
+                        <img id="header-user-avatar" class="user-avatar-small" style="width: 35px; height: 35px; border: 2px solid var(--primary); display: none;" src="" alt="Avatar">
+                        <span>Olá, <span id="display-username">Admin</span></span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- SEÇÃO: DASHBOARD -->
+            <section id="view-dashboard" class="view-section">
+                <div class="filter-box">
+                    <div class="filter-group">
+                        <label>De:</label>
+                        <input type="date" id="dashboard-date-start" onchange="renderDashboard()">
+                    </div>
+                    <div class="filter-group">
+                        <label>Até:</label>
+                        <input type="date" id="dashboard-date-end" onchange="renderDashboard()">
+                    </div>
+                    <div class="filter-group">
+                        <button class="btn-secondary" onclick="clearDashboardFilters()" style="height: 38px;">Limpar Filtros</button>
+                    </div>
+                </div>
+                <div class="cards-grid">
+                    <div class="card">
+                        <h3>Total V. Frete</h3>
+                        <p class="big-number" id="dash-revenue">R$ 0,00</p>
+                    </div>
+                    <div class="card">
+                        <h3>Lucro Líquido</h3>
+                        <p class="big-number success" id="dash-profit">R$ 0,00</p>
+                    </div>
+                    <div class="card">
+                        <h3>Custos Totais</h3>
+                        <p class="big-number danger" id="dash-cost">R$ 0,00</p>
+                    </div>
+                    <div class="card">
+                        <h3>Margem (%)</h3>
+                        <p class="big-number" id="dash-margin">0%</p>
+                    </div>
+                </div>
+                <div class="chart-box" style="margin-bottom: 20px;">
+                    <h3>Evolução do Lucro Diário</h3>
+                    <div class="canvas-container"><canvas id="chart-profit"></canvas></div>
+                </div>
+                <div class="charts-area">
+                    <div class="chart-box">
+                        <h3>Receita por Cliente (Top 5)</h3>
+                        <div class="canvas-container"><canvas id="chart-clients"></canvas></div>
+                    </div>
+                    <div class="chart-box">
+                        <h3>Status dos Fretes</h3>
+                        <div class="canvas-container"><canvas id="chart-status"></canvas></div>
+                    </div>
+                    <div class="chart-box">
+                        <h3>Fluxo de Caixa (Faturamento)</h3>
+                        <div class="canvas-container"><canvas id="chart-cashflow"></canvas></div>
+                    </div>
+                    <div class="chart-box">
+                        <h3>Faturamento Mensal (6 Meses)</h3>
+                        <div class="canvas-container"><canvas id="chart-monthly"></canvas></div>
+                    </div>
+                    <div class="chart-box">
+                        <h3>Distribuição de Custos</h3>
+                        <div class="canvas-container"><canvas id="chart-cost-distribution"></canvas></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SEÇÃO: FRETES -->
+            <section id="view-fretes" class="view-section hidden">
+                <!-- Pull to Refresh Indicator -->
+                <div id="pull-refresh" class="pull-refresh">
+                    <i class="fa-solid fa-arrow-down"></i>
+                    <div class="pull-refresh-spinner"></div>
+                </div>
+
+                <!-- Filtro Rápido de Status (Mobile) -->
+                <div id="mobile-status-filter" class="mobile-status-filter">
+                    <span class="status-filter-badge active" data-status="all">Todos</span>
+                    <span class="status-filter-badge" data-status="Pendente">Pendente</span>
+                    <span class="status-filter-badge" data-status="Em Trânsito">Em Trânsito</span>
+                    <span class="status-filter-badge" data-status="Entregue">Entregue</span>
+                </div>
+
+                <div class="actions-bar-fretes">
+                    <div class="fretes-search-bar">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="fretes-search-input" onkeyup="renderFretes()" placeholder="Buscar por CTE, Cliente, Rota, Ref...">
+                    </div>
+                    <button id="btn-new-freight" class="btn-primary" onclick="openModal('modal-frete')">+ Novo Frete</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>CTE</th>
+                                <th>Cliente</th>
+                                <th>Rota</th>
+                                <th>Envio</th>
+                                <th>Prev. Entrega</th>
+                                <th>V. Frete</th>
+                                <th>Custo Total</th>
+                                <th>Lucro</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="fretes-table-body"></tbody>
+                    </table>
+                </div>
+                <div id="fretes-footer" class="fretes-footer">
+                    <!-- Preenchido via JS -->
+                </div>
+                
+                <!-- Botão Flutuante (FAB) para Mobile -->
+                <button id="fab-new-freight" class="fab-btn" onclick="openModal('modal-frete')"><i class="fa-solid fa-plus"></i></button>
+            </section>
+
+            <!-- SEÇÃO: CLIENTES -->
+            <section id="view-clientes" class="view-section hidden">
+                <div class="actions-bar-fretes">
+                    <div class="fretes-search-bar">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="clientes-search-input" onkeyup="renderClientes()" placeholder="Buscar por Nome ou CNPJ...">
+                    </div>
+                    <button class="btn-primary" onclick="openModal('modal-cliente')">+ Novo Cliente</button>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>CNPJ/CPF</th>
+                            <th>Telefone</th>
+                            <th>Cidade</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody id="clientes-table-body"></tbody>
+                </table>
+            </section>
+
+            <!-- SEÇÃO: FATURAMENTO -->
+            <section id="view-faturamento" class="view-section hidden">
+                <div class="billing-controls">
+                    <div class="billing-filters">
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-user"></i>
+                            <select id="faturamento-client-select" onchange="renderFaturamento()">
+                                <option value="all">Todos os Clientes</option>
+                            </select>
+                        </div>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-calendar"></i>
+                            <input type="date" id="faturamento-date-start" onchange="renderFaturamento()" title="Data Inicial">
+                        </div>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-calendar"></i>
+                            <input type="date" id="faturamento-date-end" onchange="renderFaturamento()" title="Data Final">
+                        </div>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-filter"></i>
+                            <select id="faturamento-status-filter" onchange="renderFaturamento()">
+                                <option value="all">Todos Status</option>
+                                <option value="Pendente">Pendentes</option>
+                                <option value="Faturado">Faturados</option>
+                                <option value="Pago">Pagos</option>
+                            </select>
+                        </div>
+                        <div class="input-wrapper" style="display: flex; align-items: center; gap: 8px; padding-right: 10px; background: white;">
+                            <input type="checkbox" id="faturamento-nfse-filter" onchange="renderFaturamento()" style="width: auto; margin: 0;">
+                            <label for="faturamento-nfse-filter" style="margin: 0; cursor: pointer; font-size: 0.9rem;">Com NFS-e</label>
+                        </div>
+                    </div>
+                    
+                    <div class="billing-actions">
+                        <div class="action-group">
+                            <button class="btn-action btn-invoice" onclick="updateBillingStatus('Faturado')">
+                                <i class="fa-solid fa-file-invoice"></i> Faturar
+                            </button>
+                            <button class="btn-action btn-pay" onclick="updateBillingStatus('Pago')">
+                                <i class="fa-solid fa-check-double"></i> Baixar
+                            </button>
+                        </div>
+                        <div class="action-divider"></div>
+                        <div class="action-group">
+                            <button class="btn-action btn-export" onclick="exportBillingCSV()">
+                                <i class="fa-solid fa-file-csv"></i> CSV
+                            </button>
+                            <button class="btn-action btn-print" onclick="printClientInvoice()">
+                                <i class="fa-solid fa-print"></i> Imprimir
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="faturamento-details"></div>
+            </section>
+
+            <!-- SEÇÃO: PAGAMENTOS (CONTAS A PAGAR) -->
+            <section id="view-pagamentos" class="view-section hidden">
+                <div class="billing-controls">
+                    <div class="billing-filters">
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-user-tie"></i>
+                            <select id="pagamentos-agent-select" onchange="renderPagamentos()">
+                                <option value="all">Todos os Agentes</option>
+                            </select>
+                        </div>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-calendar"></i>
+                            <input type="date" id="pagamentos-date-start" onchange="renderPagamentos()" title="Data Inicial">
+                        </div>
+                        <div class="input-wrapper">
+                            <i class="fa-solid fa-calendar"></i>
+                            <input type="date" id="pagamentos-date-end" onchange="renderPagamentos()" title="Data Final">
+                        </div>
+                    </div>
+                    <div class="billing-actions">
+                        <div class="action-group">
+                            <button class="btn-action btn-print" onclick="printAgentInvoice()">
+                                <i class="fa-solid fa-print"></i> Imprimir
+                            </button>
+                            <button class="btn-action btn-pay" onclick="paySelectedAgents()">
+                                <i class="fa-solid fa-check-double"></i> Pagar Seleção
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="pagamentos-summary"></div>
+                <div class="card">
+                    <h3>Contas a Pagar (Agentes & Parceiros)</h3>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;"><input type="checkbox" onclick="toggleAllPayments(this)"></th>
+                                    <th>Data</th>
+                                    <th>CTE</th>
+                                    <th>Agente/Parceiro</th>
+                                    <th>Valor</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pagamentos-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SEÇÃO: RASTREIO -->
+            <section id="view-rastreio" class="view-section hidden">
+                <div id="tracking-list-container"></div>
+                <div id="track-result" class="track-result hidden"></div>
+            </section>
+
+            <!-- SEÇÃO: PERFIL -->
+            <section id="view-perfil" class="view-section hidden">
+                <div class="profile-header-card">
+                    <div class="profile-avatar-container">
+                        <img id="profile-img-display" src="https://ui-avatars.com/api/?name=Admin&background=random" alt="Perfil">
+                        <button class="btn-icon-small" onclick="triggerPhotoUpload()"><i class="fa-solid fa-camera"></i></button>
+                        <input type="file" id="profile-photo-input" hidden onchange="handlePhotoUpload(this)">
+                    </div>
+                    <div class="profile-info-display">
+                        <h3 id="profile-name-display">Admin</h3>
+                        <p id="profile-job-display">Administrador</p>
+                    </div>
+                </div>
+
+                <div class="form-box">
+                    <h3>Meus Dados</h3>
+                    <div class="input-group"><label>Usuário (Login)</label><input type="text" id="profile-user-edit"></div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="input-group"><label>Nome</label><input type="text" id="profile-name"></div>
+                        <div class="input-group"><label>Sobrenome</label><input type="text" id="profile-surname"></div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="input-group"><label>Telefone</label><input type="text" id="profile-phone" oninput="inputMaskPhone(this)"></div>
+                        <div class="input-group"><label>Email</label><input type="email" id="profile-email"></div>
+                    </div>
+
+                    <div class="input-group"><label>Cargo</label><input type="text" id="profile-job"></div>
+
+                    <div class="input-group" style="display: flex; align-items: center; gap: 10px; margin-top: 15px;">
+                        <input type="checkbox" id="profile-notif-sound" style="width: auto; margin: 0;">
+                        <label for="profile-notif-sound" style="margin: 0; cursor: pointer;">Habilitar sons de notificação</label>
+                    </div>
+
+                    <h4 style="margin-top: 20px; margin-bottom: 10px; color: var(--primary); border-top: 1px solid var(--border-color); padding-top: 15px;">Alterar Senha</h4>
+                    <div class="input-group"><label>Nova Senha</label><input type="password" id="profile-new-pass" placeholder="Mínimo 6 caracteres. Deixe em branco para não alterar."></div>
+                    <div class="input-group"><label>Confirmar Nova Senha</label><input type="password" id="profile-confirm-pass" placeholder="Repita a nova senha"></div>
+                    <button class="btn-primary" onclick="updateMyProfile()">Salvar Meu Perfil</button>
+                </div>
+
+                <div class="card" style="margin-top: 30px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                        <h3>Gerenciar Usuários</h3>
+                        <button class="btn-primary" onclick="openModal('modal-user')">+ Novo Usuário</button>
+                    </div>
+                    <table class="data-table">
+                        <thead><tr><th>Foto</th><th>Usuário</th><th>Função</th><th>Ações</th></tr></thead>
+                        <tbody id="users-table-body"></tbody>
+                    </table>
+                </div>
+
+                <div class="card" style="margin-top: 30px;">
+                    <h3 style="margin-bottom:20px;">Log de Auditoria de Administrador</h3>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Ação</th>
+                                    <th>Administrador</th>
+                                    <th>Detalhes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="audit-log-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAIS (Injetados via JS ou estáticos ocultos) -->
+    <div id="modal-overlay" class="modal-overlay hidden"></div>
+    <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleMobileMenu()"></div>
+
+    <!-- LOADING SCREEN -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p>Sincronizando dados...</p>
+    </div>
+
+    <script src="firebase.js"></script>
+    <script src="auth.js"></script>
+    <script src="dashboard.js"></script>
+    <script src="freights.js"></script>
+    <script src="finance.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
